@@ -13,6 +13,12 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: 1.8
+      - name: Setup Android NDK
+        uses: nttld/setup-ndk@v1.0.6
+        id: setup-ndk
+        with:
+          ndk-version: r25
+          add-to-path: false
       - id: get-project
         name: Get project name
         run: echo "::set-output name=PROJECT::$(cat project-to-build)"
