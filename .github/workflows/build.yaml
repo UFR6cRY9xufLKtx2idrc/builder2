@@ -14,7 +14,7 @@ jobs:
         with:
           java-version: 1.8
       - name: Setup Android NDK
-        uses: nttld/setup-ndk@v1.0.6
+        uses: nttld/setup-ndk@v1
         id: setup-ndk
         with:
           ndk-version: r25
@@ -27,10 +27,10 @@ jobs:
       - name: Build the app
         working-directory: ./project
         run: |
-          if [ ! -f "gradlew" ]; then gradle wrapper; fi
-          chmod +x gradlew
           echo ${{ steps.setup-ndk.outputs.ndk-path }}
           export ANDROID_NDK_ROOT=${{ steps.setup-ndk.outputs.ndk-path }}
+          if [ ! -f "gradlew" ]; then gradle wrapper; fi
+          chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
       - name: Upload APK
         uses: actions/upload-artifact@v2
