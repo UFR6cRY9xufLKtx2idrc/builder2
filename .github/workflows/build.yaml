@@ -14,7 +14,7 @@ jobs:
         with:
           java-version: 1.8
       - name: Setup Android NDK
-        uses: nttld/setup-ndk@v1.0.6
+        uses: actions/setup-ndk@v1.0.6
         id: setup-ndk
         with:
           ndk-version: r25
