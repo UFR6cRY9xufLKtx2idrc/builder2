@@ -18,7 +18,7 @@ jobs:
         id: setup-ndk
         with:
           ndk-version: r25
-          add-to-path: false
+          add-to-path: true
       - id: get-project
         name: Get project name
         run: echo "::set-output name=PROJECT::$(cat project-to-build)"
