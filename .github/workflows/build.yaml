@@ -19,8 +19,8 @@ jobs:
         uses: nttld/setup-ndk@v1.0.6
         id: setup-ndk
         with:
-          ndk-version: 25.1.8937393
-          add-to-path: false
+          ndk-version: r25b
+          add-to-path: true
           
       - id: get-project
         name: Get project name
@@ -33,9 +33,8 @@ jobs:
         working-directory: ./project
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+          NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
-          echo ${{ steps.setup-ndk.outputs.ndk-path }}
-          export ANDROID_NDK_ROOT=${{ steps.setup-ndk.outputs.ndk-path }}
           if [ ! -f "gradlew" ]; then gradle wrapper; fi
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
