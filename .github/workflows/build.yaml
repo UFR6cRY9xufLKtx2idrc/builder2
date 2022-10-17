@@ -19,7 +19,7 @@ jobs:
         uses: nttld/setup-ndk@v1.0.6
         id: setup-ndk
         with:
-          ndk-version: r25b
+          ndk-version: 25.1.8937393
           add-to-path: false
           
       - id: get-project
