@@ -44,7 +44,7 @@ jobs:
       - name: Create 7z Release
         uses: DuckSoft/create-7z-action@v1.0
         with:
-          pathSource: ./build/deployment/
+          pathSource: ./**/*.apk
           pathTarget: ./release.7z
 
       - name: Upload APK
