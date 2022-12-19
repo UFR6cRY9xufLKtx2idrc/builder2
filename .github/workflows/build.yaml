@@ -44,14 +44,14 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v3
         with:
-          name: my-build-apk.7z
+          name: my-build-apk
           path: ./**/*.apk
 
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: my-build-apk.7z
+          file: my-build-apk
           asset_name: my-build-apk.7z
           tag: ${{ github.ref }}
           overwrite: true
