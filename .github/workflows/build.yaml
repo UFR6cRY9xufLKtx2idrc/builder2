@@ -41,17 +41,11 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
 
-      - name: Create 7z Release
-        uses: DuckSoft/create-7z-action@v1.0
-        with:
-          pathSource: ./**
-          pathTarget: ./release.7z
-
       - name: Upload APK
         uses: actions/upload-artifact@v3
         with:
           name: my-build-apk.7z
-          path: release.7z
+          path: ./**/*.apk
 
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
