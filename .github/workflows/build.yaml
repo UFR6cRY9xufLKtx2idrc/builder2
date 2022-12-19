@@ -40,9 +40,24 @@ jobs:
           if [ ! -f "gradlew" ]; then gradle wrapper; fi
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
-          
-      - name: Upload APK
-        uses: actions/upload-artifact@v2
+
+      - name: Create 7z Release
+        uses: DuckSoft/create-7z-action@v1.0
         with:
-          name: my-build-apk
-          path: ./**/*.apk
+          pathSource: ./build/deployment/
+          pathTarget: ./release.7z
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: my-build-apk.7z
+          path: release.7z
+
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: release.7z
+          asset_name: my-build-apk.7z
+          tag: ${{ github.ref }}
+          overwrite: true
