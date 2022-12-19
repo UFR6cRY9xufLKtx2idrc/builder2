@@ -13,11 +13,11 @@ jobs:
         with:
           submodules: 'recursive'
 
-      - name: Setup Java 19
+      - name: Setup Java
         uses: actions/setup-java@v3
         with:
           distribution: temurin
-          java-version: 19
+          java-version: 1.8
 
       - name: Install latest build tools
         run: |
