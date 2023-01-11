@@ -1,220 +1,64 @@
-name: Release
+name: android_build
 
 on:
-  push:
-    tags:
-      - "*"
   workflow_dispatch:
 
-env:
-  go_version: '^1.19'
-  flutter_channel: 'stable'
-  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
 jobs:
-
-  ci-pass:
-    name: CI is green
+  build:
+    name: Build
     runs-on: ubuntu-latest
-    needs:
-      - check_release
-      - build_release_assets
-    steps:
-      - run: exit 0
-
-  check_release:
-    name: Check release
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          repository: ${{ github.event.inputs.repo }}
-          ref: 'master'
-      - name: Checkout submodules
-        run: git submodule update --init --recursive
-      - uses: actions/setup-go@v3
-        with:
-          go-version: ${{ env.go_version }}
-          check-latest: true
-      - name: Check release
-        run: |
-          cd ci
-          go run ./cmd/check_release
-
-  build_release_assets:
-    name: Build release assets
-    needs:
-      - check_release
-    strategy:
-      fail-fast: false
-      matrix:
-        config:
-          - target: linux
-            host: ubuntu-latest
-            flutter_version: '2.10.5'
-          - target: windows
-            host: windows-latest
-            flutter_version: '2.10.5'
-          - target: macos
-            host: macos-12
-            flutter_version: '2.10.5'
-          - target: ios
-            host: macos-12
-            flutter_version: '3.3.10'
-          - target: android-arm32
-            host: ubuntu-latest
-            flutter_version: '3.3.10'
-          - target: android-arm64
-            host: ubuntu-latest
-            flutter_version: '3.3.10'
-          - target: android-x86_64
-            host: ubuntu-latest
-            flutter_version: '3.3.10'
-
-    runs-on: ${{ matrix.config.host }}
-
-    env:
-      TARGET: ${{ matrix.config.target }}
-      flutter_version: ${{ matrix.config.flutter_version }}
-
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-
-      - name: Setup golang
-        uses: actions/setup-go@v3
         with:
-          go-version: ${{ env.go_version }}
-          check-latest: true
+          submodules: 'recursive'
 
-      - id: check_asset
-        name: Check asset
-        run: |
-          cd ci
-          go run ./cmd/check_asset
-
-      - name: Setup flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: ${{ env.flutter_channel }}
-          flutter-version: ${{ env.flutter_version }}
-          architecture: x64
-
-      - name: Setup java (Android)
-        if: ( matrix.config.target == 'android-arm32' || matrix.config.target == 'android-arm64' || matrix.config.target == 'android-x86_64' )
+      - name: Setup Java
         uses: actions/setup-java@v3
         with:
-          java-version: 8
           distribution: 'temurin'
+          java-version: 19
           check-latest: true
 
-      - name: Setup android tools (Android)
-        if: ( matrix.config.target == 'android-arm32' || matrix.config.target == 'android-arm64' || matrix.config.target == 'android-x86_64' )
-        uses: maxim-lobanov/setup-android-tools@v1
+      - name: Install latest build tools
+        run: |
+          echo "y" | sudo ${ANDROID_HOME}/tools/bin/sdkmanager --install "build-tools;33.0.3" --sdk_root=${ANDROID_SDK_ROOT}
+
+      - name: Install NDK
+        run: |
+          echo "y" | sudo ${ANDROID_HOME}/tools/bin/sdkmanager --install "ndk;25.1.8937393" --sdk_root=${ANDROID_SDK_ROOT}
+
+      - id: get-project
+        name: Get project name
+        run: echo "::set-output name=PROJECT::$(cat project-to-build)"
+        
+      - name: Clone project
+        run: git clone --depth=1 ${{ steps.get-project.outputs.PROJECT }} project
+        
+      - name: Build the app
+        working-directory: ./project
+        run: |
+          if [ ! -f "gradlew" ]; then gradle wrapper; fi
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
+
+      - name: Create 7z Release
+        uses: DuckSoft/create-7z-action@v1.0
         with:
-          packages: |
-            platform-tools
-            platforms;android-32
-            build-tools;33.0.0
-            ndk;25.1.8937393
+          pathSource: ./project/app/build/outputs/apk/debug/
+          pathTarget: ./release.7z
 
-      - name: Setup msys2 (Windows)
-        if: matrix.config.target == 'windows'
-        uses: msys2/setup-msys2@v2
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
         with:
-          install: gcc make
+          name: my-build-apk.7z
+          path: release.7z
 
-      - name: Install dependencies (Linux)
-        if: matrix.config.target == 'linux'
-        env:
-          ACTIONS_ALLOW_UNSECURE_COMMANDS: 'true'
-        run: |
-          curl -JOL https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
-          chmod a+x appimagetool-x86_64.AppImage
-          mkdir -p ${GITHUB_WORKSPACE}/bin
-          mv appimagetool-x86_64.AppImage ${GITHUB_WORKSPACE}/bin/appimagetool
-          echo ::add-path::${GITHUB_WORKSPACE}/bin
-          sudo apt-get update
-          sudo apt-get install -y libgl1-mesa-dev xorg-dev
-
-      - name: Install hover (desktop)
-        if: ( matrix.config.target == 'linux' || matrix.config.target == 'windows' || matrix.config.target == 'macos')
-        run: |
-          go install github.com/go-flutter-desktop/hover@latest
-
-      - name: Install go mobile (mobile)
-        if: ( matrix.config.target == 'ios' || matrix.config.target == 'android-arm64' || matrix.config.target == 'android-arm32' || matrix.config.target == 'android-x86_64' )
-        run: |
-          go install golang.org/x/mobile/cmd/gomobile@latest
-
-      - name: Set-Version (All)
-        run: |
-          cd ci
-          cp version.code.txt ../lib/assets/version.txt
-
-      - name: Upgrade deps version (Android)
-        if: startsWith(matrix.config.flutter_version, '3') && !startsWith(matrix.config.host, 'macos')
-        run: |
-          sed -i "s/another_xlider: 1.0.1+2/another_xlider: ^1.0.1+2/g" pubspec.yaml
-          sed -i "s/flutter_styled_toast: 2.0.0/flutter_styled_toast: ^2.0.0/g" pubspec.yaml
-          sed -i "s/filesystem_picker: 2.0.0/filesystem_picker: ^2.0.0/g" pubspec.yaml
-
-      - name: Build (windows)
-        if: matrix.config.target == 'windows'
-        run: |
-          hover build windows
-          cd go\build\outputs\windows-release
-          DEL flutter_engine.pdb
-          DEL flutter_engine.exp
-          DEL flutter_engine.lib
-          Compress-Archive * ../../../../build/build.zip
-
-      - name: Build (macos)
-        if: matrix.config.target == 'macos'
-        run: |
-          hover build darwin-dmg
-          mv go/build/outputs/darwin-dmg-release/*.dmg build/build.dmg
-
-      - name: Build (linux)
-        if: matrix.config.target == 'linux'
-        run: |
-          curl -JOL https://github.com/junmer/source-han-serif-ttf/raw/master/SubsetTTF/CN/SourceHanSerifCN-Regular.ttf
-          mkdir -p fonts
-          mv SourceHanSerifCN-Regular.ttf fonts/Roboto.ttf
-          cat ci/linux_font.yaml >> pubspec.yaml
-          hover build linux-appimage
-          mv go/build/outputs/linux-appimage-release/*.AppImage build/build.AppImage
-
-      - name: Build (ios)
-        if: matrix.config.target == 'ios'
-        run: |
-          /usr/libexec/PlistBuddy -c 'Add :application-identifier string niuhuan.nhentai' ios/Runner/Info.plist
-          sh scripts/build-ipa.sh
-
-      - name: Build (android-arm32)
-        if: matrix.config.target == 'android-arm32'
-        run: |
-          sh scripts/build-apk-arm.sh
-
-      - name: Build (android-arm64)
-        if: matrix.config.target == 'android-arm64'
-        run: |
-          sh scripts/build-apk-arm64.sh
-
-      - name: Build (android-x86_64)
-        if: matrix.config.target == 'android-x86_64'
-        run: |
-          sh scripts/build-apk-x64.sh
-
-      - name: Sign APK (Android)
-        if: ( matrix.config.target == 'android-arm32' || matrix.config.target == 'android-arm64' || matrix.config.target == 'android-x86_64' )
-        env:
-          KEY_FILE_BASE64: ${{ secrets.KEY_FILE_BASE64 }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: |
-          sh scripts/sign-apk-github-actions.sh
-
-      - name: Upload Asset (All)
-        run: |
-          cd ci
-          go run ./cmd/upload_asset
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: release.7z
+          asset_name: my-build-apk.7z
+          tag: ${{ github.ref }}
+          overwrite: true
