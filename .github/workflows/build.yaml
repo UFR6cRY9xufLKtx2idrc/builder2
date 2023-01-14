@@ -39,13 +39,13 @@ jobs:
         
       - name: Clone project
         run: git clone --depth=1 ${{ steps.get-project.outputs.PROJECT }} project
-
-      - name: Gradle Build
-        uses: gradle/gradle-build-action@v2
-        with:
-          arguments: assembleRelease
-          build-root-directory: /project
-          gradle-home-cache-cleanup: true
+        
+      - name: Build the app
+        working-directory: ./project
+        run: |
+          if [ ! -f "gradlew" ]; then gradle wrapper; fi
+          chmod +x gradlew
+          ./gradlew assembleRelease --stacktrace
 
       - name: Create 7z Release
         uses: DuckSoft/create-7z-action@v1.0
