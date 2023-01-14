@@ -1,6 +1,11 @@
 name: android_build
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - "**/project-to-build"
   workflow_dispatch:
 
 jobs:
@@ -30,22 +35,22 @@ jobs:
 
       - id: get-project
         name: Get project name
-        run: echo "::set-output name=PROJECT::$(cat project-to-build)"
+        run: echo "PROJECT=$(cat project-to-build)" >> $GITHUB_OUTPUT
         
       - name: Clone project
         run: git clone --depth=1 ${{ steps.get-project.outputs.PROJECT }} project
-        
-      - name: Build the app
-        working-directory: ./project
-        run: |
-          if [ ! -f "gradlew" ]; then gradle wrapper; fi
-          chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+
+      - name: Gradle Build
+        uses: gradle/gradle-build-action@v2
+        with:
+          arguments: assembleRelease
+          build-root-directory: ./project
+          gradle-home-cache-cleanup: true
 
       - name: Create 7z Release
         uses: DuckSoft/create-7z-action@v1.0
         with:
-          pathSource: ./project/app/build/outputs/apk/debug/
+          pathSource: ./project/app/build/outputs/apk/release/
           pathTarget: ./release.7z
 
       - name: Upload APK
