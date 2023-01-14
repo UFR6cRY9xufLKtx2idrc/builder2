@@ -45,12 +45,12 @@ jobs:
         run: |
           if [ ! -f "gradlew" ]; then gradle wrapper; fi
           chmod +x gradlew
-          ./gradlew assembleRelease --stacktrace
+          ./gradlew assembleDebug --stacktrace
 
       - name: Create 7z Release
         uses: DuckSoft/create-7z-action@v1.0
         with:
-          pathSource: ./project/app/build/outputs/apk/release/
+          pathSource: ./project/app/build/outputs/apk/debug/
           pathTarget: ./release.7z
 
       - name: Upload APK
